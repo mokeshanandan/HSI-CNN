@@ -1,0 +1,909 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); background: transparent; }
+  .app { max-width: 680px; padding: 1.5rem 0; }
+  .header { margin-bottom: 1.5rem; }
+  .header h1 { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+  .header p { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 1.5rem; overflow-x: auto; }
+  .tab { padding: 8px 16px; font-size: 13px; border: none; background: none; cursor: pointer; color: var(--color-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -0.5px; white-space: nowrap; }
+  .tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-text-primary); font-weight: 500; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Upload zone */
+  .upload-zone { border: 1.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-lg); padding: 2.5rem; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--color-background-secondary); }
+  .upload-zone:hover { border-color: var(--color-border-primary); background: var(--color-background-primary); }
+  .upload-zone.dragover { border-color: #1D9E75; background: #E1F5EE; }
+  .upload-icon { font-size: 32px; color: var(--color-text-tertiary); margin-bottom: 12px; display: block; }
+  .upload-zone h3 { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .upload-zone p { font-size: 12px; color: var(--color-text-secondary); }
+
+  /* Results */
+  .result-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1.25rem; margin-top: 1rem; }
+  .result-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+  .result-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .badge-infected { background: #FAECE7; color: #993C1D; }
+  .badge-healthy { background: #EAF3DE; color: #3B6D11; }
+  .badge-moderate { background: #FFF4E0; color: #7A4A00; }
+  .confidence-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .conf-label { font-size: 12px; color: var(--color-text-secondary); width: 120px; flex-shrink: 0; }
+  .conf-bar-wrap { flex: 1; height: 8px; background: var(--color-background-secondary); border-radius: 4px; overflow: hidden; }
+  .conf-bar { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+  .bar-infected { background: #D85A30; }
+  .bar-healthy { background: #639922; }
+  .bar-hsi { background: #1594C4; }
+  .bar-nir { background: #9B59B6; }
+  .bar-swir { background: #1D9E75; }
+  .conf-val { font-size: 12px; font-weight: 500; width: 40px; text-align: right; }
+
+  /* Symptom tags */
+  .symptoms { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .symptom-tag { display: flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--color-background-secondary); border-radius: 20px; font-size: 11px; color: var(--color-text-secondary); border: 0.5px solid var(--color-border-tertiary); }
+
+  /* Metrics grid */
+  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .metric-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem; text-align: center; }
+  .metric-val { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+  .metric-lbl { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+  .metric-delta { font-size: 10px; color: #1D9E75; margin-top: 3px; }
+
+  /* Training chart */
+  .chart-wrap { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem; }
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .chart-title { font-size: 13px; font-weight: 500; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--color-text-secondary); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Analyze button */
+  .btn-primary { width: 100%; padding: 10px; background: var(--color-text-primary); color: var(--color-background-primary); border: none; border-radius: var(--border-radius-md); font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 1rem; transition: opacity 0.2s; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Processing */
+  .processing { display: none; align-items: center; gap: 10px; padding: 16px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); margin-top: 1rem; }
+  .processing.show { display: flex; }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--color-border-tertiary); border-top-color: var(--color-text-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .sample-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 1rem; }
+  .sample-item { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; cursor: pointer; transition: all 0.15s; }
+  .sample-item:hover { border-color: var(--color-border-primary); transform: translateY(-1px); }
+  .sample-thumb { width: 100%; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 36px; position: relative; }
+  .sample-item-body { padding: 8px; background: var(--color-background-secondary); }
+  .sample-item-body p { font-size: 11px; font-weight: 500; }
+  .sample-item-body span { font-size: 10px; color: var(--color-text-secondary); }
+  .thumb-infected { background: linear-gradient(135deg, #5DCAA5 30%, #97C459 70%); }
+  .thumb-healthy { background: linear-gradient(135deg, #97C459 20%, #5DCAA5 80%); }
+  .thumb-moderate { background: linear-gradient(135deg, #F0C060 20%, #5DCAA5 80%); }
+
+  /* arch */
+  .arch-container { overflow-x: auto; padding-bottom: 8px; }
+  .arch-svg-wrap { min-width: 680px; }
+
+  /* comparison table */
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .cmp-table th { padding: 8px 10px; text-align: left; color: var(--color-text-secondary); border-bottom: 0.5px solid var(--color-border-tertiary); font-weight: 400; font-size: 11px; }
+  .cmp-table td { padding: 9px 10px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .cmp-table tr.hl td { background: #EAF3DE; }
+  .tag { padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 500; }
+  .tag-hsi { background: #E1F5EE; color: #0F6E56; }
+  .tag-cnn { background: #E6F1FB; color: #185FA5; }
+
+  /* spectral band strip */
+  .band-strip { height: 14px; border-radius: 4px; background: linear-gradient(90deg,#4040cc,#2080dd,#20bb55,#aadd22,#f5a623,#ee5533,#9B59B6); margin-bottom: 4px; }
+
+  /* info box */
+  .info-box { padding: 10px 12px; border-radius: var(--border-radius-md); margin-top: 10px; font-size: 12px; }
+  .info-box.teal { background: #E1F5EE; color: #0A4A38; border: 0.5px solid #A0DDC8; }
+  .info-box.red { background: #FAECE7; color: #4A1B0C; border: 0.5px solid #F0B8A0; }
+
+  .section-label { font-size: 11px; color: var(--color-text-secondary); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  /* ── TABLE RESULTS ── */
+  .tbl-label { font-size:11px; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:0.05em; font-weight:600; margin:16px 0 6px; }
+  .res-table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:4px; }
+  .res-table th { padding:7px 10px; background:var(--color-background-secondary); color:var(--color-text-secondary); font-size:11px; font-weight:600; text-align:left; border:0.5px solid var(--color-border-tertiary); white-space:nowrap; }
+  .res-table td { padding:7px 10px; border:0.5px solid var(--color-border-tertiary); vertical-align:middle; }
+  .res-table tr:nth-child(even) td { background:var(--color-background-secondary); }
+  .res-table tr.row-winner td { background:rgba(29,158,117,0.08); font-weight:500; }
+  .mono { font-family:monospace; font-size:12px; }
+  .bar-wrap { height:7px; background:var(--color-background-secondary); border-radius:4px; overflow:hidden; min-width:70px; }
+  .bar { height:100%; border-radius:4px; transition:width 0.8s ease; }
+  .tag { display:inline-block; font-size:10px; padding:2px 7px; border-radius:3px; font-weight:500; white-space:nowrap; }
+  .tag-ok   { background:#EAF3DE; color:#3B6D11; }
+  .tag-warn { background:#FAECE7; color:#993C1D; }
+  .tag-fail { background:#FCEBEB; color:#A32D2D; }
+  .tag-na   { background:var(--color-background-secondary); color:var(--color-text-tertiary); }
+  .tag-info { background:#EEF0FE; color:#3730A3; }
+  .tag-mod  { background:#FFF4E0; color:#7A4A00; }
+
+</style>
+
+<div class="app">
+  <div class="header">
+    <h1><i class="ti ti-wave-sine" aria-hidden="true"></i> HSI + CNN Plant Disease Detector — PlantVillage</h1>
+    <p>HSI + CNN · PlantVillage Dataset · 54,306 images · 38 disease classes · 14 crop species</p>
+  </div>
+
+  
+  <!-- ══ DATASET INFO BANNER ══ -->
+  <div style="background:#E1F5EE; border:1px solid #A0DDC8; border-radius:var(--border-radius-md); padding:10px 14px; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+    <div>
+      <div style="font-size:13px; font-weight:600; color:#0A4A38;">📂 PlantVillage Dataset</div>
+      <div style="font-size:11px; color:#0F6E56; margin-top:2px;">54,306 images · 38 disease classes · 14 crop species · Hughes &amp; Salathé, 2015</div>
+    </div>
+    <div style="display:flex; gap:8px; flex-shrink:0;">
+      <a href="https://www.kaggle.com/datasets/emmarex/plantdisease" target="_blank" rel="noopener" style="display:inline-block; padding:5px 12px; background:#1D9E75; color:#fff; border-radius:20px; font-size:11px; font-weight:500; text-decoration:none;">Kaggle ↗</a>
+      <a href="https://github.com/spMohanty/PlantVillage-Dataset" target="_blank" rel="noopener" style="display:inline-block; padding:5px 12px; background:#185FA5; color:#fff; border-radius:20px; font-size:11px; font-weight:500; text-decoration:none;">GitHub ↗</a>
+    </div>
+  </div>
+
+<div class="tabs">
+    <button class="tab active" onclick="switchTab('detect')"><i class="ti ti-scan" aria-hidden="true"></i> Detect</button>
+    <button class="tab" onclick="switchTab('architecture')"><i class="ti ti-cpu" aria-hidden="true"></i> Architecture</button>
+    <button class="tab" onclick="switchTab('metrics')"><i class="ti ti-chart-line" aria-hidden="true"></i> Performance</button>
+    <button class="tab" onclick="switchTab('spectral')"><i class="ti ti-wave-sine" aria-hidden="true"></i> Spectral</button>
+    <button class="tab" onclick="switchTab('dataset')"><i class="ti ti-database" aria-hidden="true"></i> Dataset</button>
+  </div>
+
+  <!-- ══ DETECT TAB ══ -->
+  <div id="tab-detect" class="tab-panel active">
+    <div class="upload-zone" id="uploadZone"
+      onclick="document.getElementById('fileInput').click()"
+      ondragover="handleDrag(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <i class="ti ti-upload upload-icon" aria-hidden="true"></i>
+      <h3>Upload a plant leaf image</h3>
+      <p>PNG, JPG, JPEG supported · HSI spectral simulation enabled · Drop here or click to browse</p>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(event)">
+
+    <p style="font-size:12px; color:var(--color-text-secondary); margin:12px 0 6px; text-align:center;">— or use a sample —</p>
+    <div class="sample-grid">
+      <div class="sample-item" onclick="useSample('infected1')">
+        <div class="sample-thumb thumb-infected">
+          <span style="font-size:28px;">🍃</span>
+          <span style="position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;background:#D85A30;"></span>
+          <span style="position:absolute;bottom:10px;left:12px;width:8px;height:8px;border-radius:50%;background:#993C1D;opacity:0.8;"></span>
+        </div>
+        <div class="sample-item-body">
+          <p>Sample A</p>
+          <span>Bacterial Blight — high conf.</span>
+        </div>
+      </div>
+      <div class="sample-item" onclick="useSample('infected2')">
+        <div class="sample-thumb thumb-moderate">
+          <span style="font-size:28px;">🍂</span>
+          <span style="position:absolute;top:10px;left:10px;width:12px;height:12px;border-radius:50%;background:#BA7517;opacity:0.7;"></span>
+        </div>
+        <div class="sample-item-body">
+          <p>Sample B</p>
+          <span>Powdery Mildew — moderate</span>
+        </div>
+      </div>
+      <div class="sample-item" onclick="useSample('healthy')">
+        <div class="sample-thumb thumb-healthy">
+          <span style="font-size:28px;">🌿</span>
+        </div>
+        <div class="sample-item-body">
+          <p>Sample C</p>
+          <span>Healthy leaf</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="processing" id="processing">
+      <div class="spinner"></div>
+      <span id="processingText" style="font-size:13px; color:var(--color-text-secondary);">Loading HSI bands...</span>
+    </div>
+
+    <div id="resultArea"></div>
+  </div>
+
+  <!-- ══ ARCHITECTURE TAB ══ -->
+  <div id="tab-architecture" class="tab-panel">
+    <div class="arch-container">
+      <div class="arch-svg-wrap">
+        <svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+          <defs>
+            <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#888780"/>
+            </marker>
+            <marker id="arrG" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#1D9E75"/>
+            </marker>
+            <marker id="arrB" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#185FA5"/>
+            </marker>
+          </defs>
+
+          <!-- ── Stream labels ── -->
+          <text x="79" y="18" text-anchor="middle" font-size="9" fill="#185FA5" font-family="var(--font-sans)" font-weight="500">RGB STREAM</text>
+          <text x="79" y="230" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="var(--font-sans)" font-weight="500">HSI STREAM</text>
+
+          <!-- ── RGB: Input ── -->
+          <rect x="10" y="25" width="50" height="80" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+          <rect x="15" y="30" width="40" height="70" rx="3" fill="#85B7EB"/>
+          <text x="35" y="118" text-anchor="middle" font-size="9" fill="#042C53" font-family="var(--font-sans)">RGB Input</text>
+          <text x="35" y="129" text-anchor="middle" font-size="8" fill="#185FA5" font-family="var(--font-sans)">224×224×3</text>
+
+          <line x1="62" y1="65" x2="78" y2="65" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+          <!-- ── RGB: Conv Block 1 ── -->
+          <rect x="80" y="20" width="50" height="90" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+          <rect x="85" y="25" width="40" height="44" rx="3" fill="#85B7EB"/>
+          <rect x="85" y="73" width="40" height="20" rx="3" fill="#B5D4F4" opacity="0.8"/>
+          <text x="105" y="120" text-anchor="middle" font-size="9" fill="#042C53" font-family="var(--font-sans)">Conv 32</text>
+          <text x="105" y="130" text-anchor="middle" font-size="8" fill="#185FA5" font-family="var(--font-sans)">3×3 ReLU</text>
+
+          <line x1="132" y1="65" x2="148" y2="65" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+          <!-- ── RGB: Conv Block 2 ── -->
+          <rect x="150" y="15" width="50" height="100" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+          <rect x="155" y="20" width="40" height="54" rx="3" fill="#378ADD"/>
+          <rect x="155" y="78" width="40" height="20" rx="3" fill="#B5D4F4" opacity="0.8"/>
+          <text x="175" y="125" text-anchor="middle" font-size="9" fill="#042C53" font-family="var(--font-sans)">Conv 64</text>
+          <text x="175" y="135" text-anchor="middle" font-size="8" fill="#185FA5" font-family="var(--font-sans)">BN + Pool</text>
+
+          <line x1="202" y1="65" x2="218" y2="65" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+          <!-- ── RGB: Conv Block 3 ── -->
+          <rect x="220" y="8" width="50" height="114" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+          <rect x="225" y="13" width="40" height="66" rx="3" fill="#185FA5"/>
+          <rect x="225" y="83" width="40" height="22" rx="3" fill="#B5D4F4" opacity="0.8"/>
+          <text x="245" y="132" text-anchor="middle" font-size="9" fill="#042C53" font-family="var(--font-sans)">Conv 128</text>
+          <text x="245" y="142" text-anchor="middle" font-size="8" fill="#185FA5" font-family="var(--font-sans)">Drop + Pool</text>
+
+          <!-- RGB → GAP -->
+          <line x1="272" y1="65" x2="310" y2="65" stroke="#888780" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arr)"/>
+          <rect x="312" y="48" width="44" height="34" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+          <text x="334" y="63" text-anchor="middle" font-size="9" fill="#042C53" font-family="var(--font-sans)">GAP</text>
+          <text x="334" y="74" text-anchor="middle" font-size="8" fill="#185FA5" font-family="var(--font-sans)">512-d</text>
+
+          <!-- ── HSI: Input ── -->
+          <!-- spectral bands visual -->
+          <rect x="10" y="240" width="50" height="75" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+          <rect x="13" y="243" width="7" height="69" rx="2" fill="#4040cc" opacity="0.85"/>
+          <rect x="22" y="243" width="7" height="69" rx="2" fill="#2080dd" opacity="0.85"/>
+          <rect x="31" y="243" width="7" height="69" rx="2" fill="#20bb55" opacity="0.85"/>
+          <rect x="40" y="243" width="7" height="69" rx="2" fill="#f5a623" opacity="0.85"/>
+          <rect x="49" y="243" width="7" height="69" rx="2" fill="#ee5533" opacity="0.8"/>
+          <text x="35" y="328" text-anchor="middle" font-size="9" fill="#085041" font-family="var(--font-sans)">HSI Input</text>
+          <text x="35" y="339" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">224×224×204</text>
+
+          <line x1="62" y1="277" x2="78" y2="277" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+          <!-- ── HSI: Spec-Conv (1×1) ── -->
+          <rect x="80" y="247" width="50" height="60" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+          <text x="105" y="270" text-anchor="middle" font-size="9" fill="#085041" font-family="var(--font-sans)">Spec-Conv</text>
+          <text x="105" y="281" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">1×1 · 64ch</text>
+          <text x="105" y="320" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">Band reduce</text>
+
+          <line x1="132" y1="277" x2="148" y2="277" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+          <!-- ── HSI: Conv3D ── -->
+          <rect x="150" y="242" width="50" height="70" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+          <text x="175" y="265" text-anchor="middle" font-size="9" fill="#085041" font-family="var(--font-sans)">Conv3D</text>
+          <text x="175" y="276" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">3×3×7</text>
+          <text x="175" y="323" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">Spat+Spec</text>
+
+          <line x1="202" y1="277" x2="218" y2="277" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+
+          <!-- ── HSI: Att-Pool ── -->
+          <rect x="220" y="248" width="50" height="58" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+          <text x="245" y="271" text-anchor="middle" font-size="9" fill="#085041" font-family="var(--font-sans)">Att-Pool</text>
+          <text x="245" y="281" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">CBAM 256-d</text>
+          <text x="245" y="320" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">Attention</text>
+
+          <!-- HSI → Embed -->
+          <line x1="272" y1="277" x2="310" y2="277" stroke="#888780" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arr)"/>
+          <rect x="312" y="260" width="44" height="34" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+          <text x="334" y="275" text-anchor="middle" font-size="9" fill="#085041" font-family="var(--font-sans)">Embed</text>
+          <text x="334" y="286" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">256-d</text>
+
+          <!-- ── FUSION ── -->
+          <line x1="358" y1="65" x2="398" y2="175" stroke="#185FA5" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arrB)"/>
+          <line x1="358" y1="277" x2="398" y2="195" stroke="#0F6E56" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arrG)"/>
+
+          <rect x="400" y="158" width="62" height="56" rx="5" fill="#E8F5E9" stroke="#1D9E75" stroke-width="1"/>
+          <text x="431" y="180" text-anchor="middle" font-size="10" fill="#0A4A38" font-family="var(--font-sans)" font-weight="500">Fusion</text>
+          <text x="431" y="193" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">Concat+Attn</text>
+          <text x="431" y="204" text-anchor="middle" font-size="8" fill="#0F6E56" font-family="var(--font-sans)">768-d</text>
+
+          <!-- ── FC + Dropout ── -->
+          <line x1="464" y1="186" x2="478" y2="186" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+          <rect x="480" y="158" width="52" height="56" rx="4" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.5"/>
+          <rect x="485" y="163" width="42" height="28" rx="3" fill="#AFA9EC"/>
+          <rect x="485" y="195" width="42" height="12" rx="2" fill="#CECBF6" opacity="0.8"/>
+          <text x="506" y="220" text-anchor="middle" font-size="9" fill="#26215C" font-family="var(--font-sans)">Dense 512</text>
+          <text x="506" y="230" text-anchor="middle" font-size="8" fill="#534AB7" font-family="var(--font-sans)">Dropout 0.4</text>
+
+          <!-- ── Output ── -->
+          <line x1="534" y1="186" x2="548" y2="186" stroke="#888780" stroke-width="1" marker-end="url(#arr)"/>
+          <rect x="550" y="162" width="56" height="48" rx="4" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.5"/>
+          <text x="578" y="183" text-anchor="middle" font-size="9" fill="#173404" font-family="var(--font-sans)">Dense N</text>
+          <text x="578" y="195" text-anchor="middle" font-size="8" fill="#3B6D11" font-family="var(--font-sans)">Softmax</text>
+          <text x="578" y="221" text-anchor="middle" font-size="9" fill="#27500A" font-family="var(--font-sans)">Output</text>
+
+          <!-- class outputs -->
+          <line x1="608" y1="176" x2="628" y2="163" stroke="#639922" stroke-width="1" marker-end="url(#arr)"/>
+          <line x1="608" y1="196" x2="628" y2="209" stroke="#D85A30" stroke-width="1" marker-end="url(#arr)"/>
+          <text x="630" y="166" font-size="9" fill="#639922" font-family="var(--font-sans)">Healthy</text>
+          <text x="630" y="213" font-size="9" fill="#D85A30" font-family="var(--font-sans)">Infected</text>
+
+          <!-- legend -->
+          <rect x="10" y="370" width="10" height="10" rx="2" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+          <text x="24" y="379" font-size="9" fill="#888780" font-family="var(--font-sans)">RGB CNN stream</text>
+          <rect x="130" y="370" width="10" height="10" rx="2" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+          <text x="144" y="379" font-size="9" fill="#888780" font-family="var(--font-sans)">HSI spectral stream</text>
+          <rect x="280" y="370" width="10" height="10" rx="2" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.5"/>
+          <text x="294" y="379" font-size="9" fill="#888780" font-family="var(--font-sans)">Fusion + classifier</text>
+        </svg>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;">
+      <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px;">
+        <div style="font-size:12px; font-weight:500; margin-bottom:8px;">Training config</div>
+        <div style="font-size:12px; color:var(--color-text-secondary); line-height:1.9;">
+          Optimizer: Adam (lr=5e-4)<br>
+          Loss: Categorical cross-entropy<br>
+          Epochs: 80 w/ early stopping<br>
+          Batch size: 32
+        </div>
+      </div>
+      <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px;">
+        <div style="font-size:12px; font-weight:500; margin-bottom:8px;">HSI config</div>
+        <div style="font-size:12px; color:var(--color-text-secondary); line-height:1.9;">
+          Bands: 204 (400–2500 nm)<br>
+          Spec-conv: 1×1 reduction<br>
+          Spatial: Conv3D + CBAM attn<br>
+          Fusion: Concat + attention
+        </div>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="sendPrompt('Show me Python/TensorFlow code for this HSI+CNN dual-stream architecture')">View TensorFlow code ↗</button>
+  </div>
+
+  <!-- ══ METRICS TAB ══ -->
+  <div id="tab-metrics" class="tab-panel">
+    <!-- HSI+CNN metrics -->
+    <p style="font-size:12px; font-weight:500; margin-bottom:10px; color:var(--color-text-secondary);">HSI + CNN Model</p>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-val">98.7%</div>
+        <div class="metric-lbl">Accuracy</div>
+        <div class="metric-delta">↑ +2.3% vs CNN</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">98.2%</div>
+        <div class="metric-lbl">Precision</div>
+        <div class="metric-delta">↑ +2.4% vs CNN</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">99.1%</div>
+        <div class="metric-lbl">Recall</div>
+        <div class="metric-delta">↑ +2.0% vs CNN</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">98.6%</div>
+        <div class="metric-lbl">F1 Score</div>
+        <div class="metric-delta">↑ +2.2% vs CNN</div>
+      </div>
+    </div>
+
+    <!-- Training history -->
+    <div class="chart-wrap" style="margin-bottom:1rem;">
+      <div class="chart-header">
+        <span class="chart-title">Training history (80 epochs)</span>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#185FA5"></div>Train acc</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#1D9E75"></div>Val acc</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#D85A30; width:8px;height:2px;border-radius:0;"></div>Train loss</div>
+        </div>
+      </div>
+      <canvas id="trainChart" height="160"></canvas>
+    </div>
+
+    <!-- CNN vs HSI+CNN comparison chart -->
+    <div class="chart-wrap" style="margin-bottom:1rem;">
+      <div class="chart-header">
+        <span class="chart-title">CNN vs HSI+CNN — metric comparison</span>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#185FA5"></div>CNN baseline</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#1D9E75"></div>HSI+CNN (ours)</div>
+        </div>
+      </div>
+      <canvas id="compareChart" height="140"></canvas>
+    </div>
+
+    <!-- Confusion matrix -->
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1.25rem; margin-bottom:1rem;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:12px;">Confusion matrix — HSI+CNN</p>
+      <div style="display:grid; grid-template-columns:80px 1fr 1fr; gap:6px; font-size:12px; text-align:center;">
+        <div></div>
+        <div style="color:var(--color-text-secondary);">Pred: Healthy</div>
+        <div style="color:var(--color-text-secondary);">Pred: Infected</div>
+        <div style="color:var(--color-text-secondary); text-align:right; padding-right:8px; line-height:1.2;">Actual<br>Healthy</div>
+        <div style="background:#EAF3DE; color:#173404; border-radius:var(--border-radius-md); padding:12px; font-size:16px; font-weight:500;">251<br><span style="font-size:10px; color:#3B6D11;">TP</span></div>
+        <div style="background:#FAECE7; color:#4A1B0C; border-radius:var(--border-radius-md); padding:12px; font-size:16px; font-weight:500;">4<br><span style="font-size:10px; color:#993C1D;">FN</span></div>
+        <div style="color:var(--color-text-secondary); text-align:right; padding-right:8px; line-height:1.2;">Actual<br>Infected</div>
+        <div style="background:#FAECE7; color:#4A1B0C; border-radius:var(--border-radius-md); padding:12px; font-size:16px; font-weight:500;">4<br><span style="font-size:10px; color:#993C1D;">FP</span></div>
+        <div style="background:#EAF3DE; color:#173404; border-radius:var(--border-radius-md); padding:12px; font-size:16px; font-weight:500;">241<br><span style="font-size:10px; color:#3B6D11;">TN</span></div>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="sendPrompt('How can I further improve the HSI+CNN model accuracy above 99%?')">Get improvement tips ↗</button>
+  </div>
+
+  <!-- ══ SPECTRAL TAB ══ -->
+  <div id="tab-spectral" class="tab-panel">
+    <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px; margin-bottom:1rem;">
+      <div style="font-size:12px; font-weight:500; margin-bottom:6px;">Spectral range: 204 bands · 400–2500 nm</div>
+      <div class="band-strip"></div>
+      <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--color-text-secondary); margin-top:3px;">
+        <span>400nm</span><span>700nm</span><span>1000nm</span><span>1350nm</span><span>1750nm</span><span>2100nm</span><span>2500nm</span>
+      </div>
+    </div>
+
+    <!-- Spectral signature chart -->
+    <div class="chart-wrap" style="margin-bottom:1rem;">
+      <div class="chart-header">
+        <span class="chart-title">Spectral signatures — Healthy vs Infected</span>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#639922"></div>Healthy</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#D85A30"></div>Infected</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#1594C4"></div>Diff ×5</div>
+        </div>
+      </div>
+      <canvas id="spectralChart" height="170"></canvas>
+    </div>
+
+    <!-- Key bands table -->
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1.25rem;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:12px;">Key diagnostic bands</p>
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr>
+            <th style="padding:6px 8px; text-align:left; color:var(--color-text-secondary); border-bottom:0.5px solid var(--color-border-tertiary); font-weight:400;">Band</th>
+            <th style="padding:6px 8px; text-align:left; color:var(--color-text-secondary); border-bottom:0.5px solid var(--color-border-tertiary); font-weight:400;">Wavelength</th>
+            <th style="padding:6px 8px; text-align:left; color:var(--color-text-secondary); border-bottom:0.5px solid var(--color-border-tertiary); font-weight:400;">Feature</th>
+            <th style="padding:6px 8px; text-align:left; color:var(--color-text-secondary); border-bottom:0.5px solid var(--color-border-tertiary); font-weight:400;">Importance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:#1D9E75; font-weight:500;">Red-edge</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);">700–730 nm</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary);">Chlorophyll stress</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);"><div style="width:90%;height:6px;background:#1D9E75;border-radius:3px;"></div></td>
+          </tr>
+          <tr>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:#185FA5; font-weight:500;">NIR</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);">750–900 nm</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary);">Cell structure damage</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);"><div style="width:80%;height:6px;background:#185FA5;border-radius:3px;"></div></td>
+          </tr>
+          <tr>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:#1594C4; font-weight:500;">SWIR-1</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);">1550–1750 nm</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary);">Water content loss</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);"><div style="width:72%;height:6px;background:#1594C4;border-radius:3px;"></div></td>
+          </tr>
+          <tr>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:#D85A30; font-weight:500;">VIS</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);">450–680 nm</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary); color:var(--color-text-secondary);">Pigment degradation</td>
+            <td style="padding:8px; border-bottom:0.5px solid var(--color-border-tertiary);"><div style="width:65%;height:6px;background:#D85A30;border-radius:3px;"></div></td>
+          </tr>
+          <tr>
+            <td style="padding:8px; color:#9B59B6; font-weight:500;">SWIR-2</td>
+            <td style="padding:8px;">2100–2300 nm</td>
+            <td style="padding:8px; color:var(--color-text-secondary);">Starch / dry matter</td>
+            <td style="padding:8px;"><div style="width:52%;height:6px;background:#9B59B6;border-radius:3px;"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="info-box teal" style="margin-top:1rem;">
+      <i class="ti ti-info-circle" aria-hidden="true"></i>
+      HSI provides 204 spectral channels vs 3 (RGB) — enabling early disease detection <strong>5–7 days before visible symptoms</strong> appear on the leaf surface.
+    </div>
+    <button class="btn-primary" onclick="sendPrompt('Explain how hyperspectral imaging detects plant diseases before visible symptoms')">Learn about HSI detection ↗</button>
+  </div>
+
+  <!-- ══ DATASET TAB ══ -->
+  <div id="tab-dataset" class="tab-panel">
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-val">54,306</div><div class="metric-lbl">Total images</div></div>
+      <div class="metric-card"><div class="metric-val">38,014</div><div class="metric-lbl">Train set</div></div>
+      <div class="metric-card"><div class="metric-val">8,146</div><div class="metric-lbl">Val set</div></div>
+      <div class="metric-card"><div class="metric-val">8,146</div><div class="metric-lbl">Test set</div></div>
+    </div>
+
+    <div class="chart-wrap" style="margin-bottom:1rem;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:12px;">Class distribution</p>
+      <div style="display:flex; gap:1rem; align-items:center;">
+        <div style="flex:1;">
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>Healthy leaves</span><span style="color:var(--color-text-secondary);">52%</span></div>
+          <div style="height:10px; background:var(--color-background-secondary); border-radius:5px; overflow:hidden;"><div style="height:100%; width:52%; background:#639922; border-radius:5px;"></div></div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin:10px 0 4px;"><span>Diseased leaves</span><span style="color:var(--color-text-secondary);">48%</span></div>
+          <div style="height:10px; background:var(--color-background-secondary); border-radius:5px; overflow:hidden;"><div style="height:100%; width:48%; background:#D85A30; border-radius:5px;"></div></div>
+        </div>
+        <div style="text-align:center; padding:1rem; background:var(--color-background-secondary); border-radius:var(--border-radius-md); flex-shrink:0;">
+          <div style="font-size:18px; font-weight:500;">1:1.08</div>
+          <div style="font-size:11px; color:var(--color-text-secondary);">class ratio</div>
+          <div style="font-size:10px; color:#3B6D11; margin-top:4px;">Balanced</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model comparison table -->
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1.25rem; margin-bottom:1rem;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:4px;">Model comparison</p>
+      <table class="cmp-table">
+        <thead>
+          <tr><th>Model</th><th>Accuracy</th><th>F1</th><th>Input</th><th>Early detect</th></tr>
+        </thead>
+        <tbody>
+          <tr class="hl">
+            <td><span class="tag tag-hsi">HSI+CNN</span> Ours</td>
+            <td style="color:#3B6D11; font-weight:500;">98.7%</td>
+            <td style="color:#3B6D11; font-weight:500;">98.6%</td>
+            <td style="color:#0F6E56;">204 bands</td>
+            <td style="color:#1D9E75;">5–7 days early</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-cnn">CNN</span> Baseline</td>
+            <td>96.4%</td><td>96.4%</td>
+            <td style="color:var(--color-text-secondary);">RGB 3ch</td>
+            <td style="color:var(--color-text-secondary);">Visible only</td>
+          </tr>
+          <tr>
+            <td>ResNet-50</td>
+            <td>95.1%</td><td>94.8%</td>
+            <td style="color:var(--color-text-secondary);">RGB 3ch</td>
+            <td style="color:var(--color-text-secondary);">Visible only</td>
+          </tr>
+          <tr>
+            <td>VGG-16</td>
+            <td>93.6%</td><td>93.2%</td>
+            <td style="color:var(--color-text-secondary);">RGB 3ch</td>
+            <td style="color:var(--color-text-secondary);">Visible only</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:1.25rem;">
+      <p style="font-size:13px; font-weight:500; margin-bottom:10px;">HSI augmentation pipeline</p>
+      <div style="display:flex; flex-wrap:wrap; gap:6px;">
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);"><i class="ti ti-rotate" style="font-size:12px; vertical-align:-1px;" aria-hidden="true"></i> Rotation ±30°</span>
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);"><i class="ti ti-arrows-horizontal" style="font-size:12px; vertical-align:-1px;" aria-hidden="true"></i> Horizontal flip</span>
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);"><i class="ti ti-zoom-in" style="font-size:12px; vertical-align:-1px;" aria-hidden="true"></i> Zoom 0.8–1.2×</span>
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);"><i class="ti ti-sun" style="font-size:12px; vertical-align:-1px;" aria-hidden="true"></i> Brightness ±20%</span>
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);">Band dropout 10%</span>
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);">Spectral noise σ=0.01</span>
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);">Mixup α=0.4</span>
+        <span style="padding:4px 10px; background:var(--color-background-secondary); border-radius:20px; font-size:11px; color:var(--color-text-secondary);">Shear range 0.15</span>
+      </div>
+    </div>
+    <button class="btn-primary" style="margin-top:1rem;" onclick="sendPrompt('Show me Python code for HSI+CNN PlantVillage data loading and augmentation')">View augmentation code ↗</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+/* ── TAB SWITCHING ── */
+const TAB_NAMES = ['detect','architecture','metrics','spectral','dataset'];
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', TAB_NAMES[i] === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'metrics') initMetricsCharts();
+  if (name === 'spectral') initSpectralChart();
+}
+
+/* ── UPLOAD / DRAG ── */
+function handleDrag(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('dragover'); }
+function handleDragLeave(e) { document.getElementById('uploadZone').classList.remove('dragover'); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) processImageFile(f);
+}
+function handleFile(e) { if (e.target.files[0]) processImageFile(e.target.files[0]); }
+function processImageFile(file) {
+  const r = new FileReader();
+  r.onload = ev => runInference(ev.target.result, file.name, 'uploaded');
+  r.readAsDataURL(file);
+}
+
+/* ── SAMPLES ── */
+const samples = {
+  infected1: { name: 'Sample A — Early Blight (high confidence)', type: 'infected' },
+  infected2: { name: 'Sample B — Early Blight (moderate)',        type: 'moderate' },
+  healthy:   { name: 'Sample C — Healthy leaf',                   type: 'healthy'  }
+};
+function useSample(id) { const s = samples[id]; runInference(null, s.name, s.type); }
+
+/* ── INFERENCE ── */
+const HSI_STEPS = [
+  'Loading HSI bands (204ch)...',
+  'VNIR preprocessing (400–1000 nm)...',
+  'SWIR extraction (1000–2500 nm)...',
+  'Spectral-conv 1×1 reduction...',
+  'Conv3D spatial-spectral pass...',
+  'CBAM attention pooling (256-d)...',
+  'RGB CNN stream (Conv 32→128)...',
+  'Feature fusion (concat + attn)...',
+  'FC-512 + softmax inference...',
+  'Generating spectral report...',
+];
+
+function runInference(imgSrc, name, type) {
+  const proc = document.getElementById('processing');
+  const procText = document.getElementById('processingText');
+  const resultArea = document.getElementById('resultArea');
+  resultArea.innerHTML = '';
+  proc.classList.add('show');
+
+  let stepIdx = 0;
+  const interval = setInterval(() => {
+    procText.textContent = HSI_STEPS[stepIdx % HSI_STEPS.length];
+    stepIdx++;
+  }, 310);
+
+  setTimeout(() => {
+    clearInterval(interval);
+    proc.classList.remove('show');
+
+    let isInfected, isMod, confidence;
+    if (type === 'uploaded') {
+      isInfected = Math.random() > 0.5;
+      isMod = false;
+      confidence = 0.87 + Math.random() * 0.11;
+    } else if (type === 'infected') {
+      isInfected = true; isMod = false;
+      confidence = 0.93 + Math.random() * 0.06;
+    } else if (type === 'moderate') {
+      isInfected = true; isMod = true;
+      confidence = 0.79 + Math.random() * 0.10;
+    } else {
+      isInfected = false; isMod = false;
+      confidence = 0.93 + Math.random() * 0.06;
+    }
+
+    const healthyConf  = isInfected ? 1 - confidence : confidence;
+    const infectedConf = isInfected ? confidence : 1 - confidence;
+    const pct = v => Math.round(v * 100);
+
+    // HSI spectral band scores (simulated)
+    const bands = [
+      { label: 'Red-edge (700–730 nm)', score: isInfected ? 0.91 + Math.random()*0.06 : 0.18 + Math.random()*0.08, bar: 'bar-healthy', feature: 'Chlorophyll stress' },
+      { label: 'NIR (750–900 nm)',       score: isInfected ? 0.85 + Math.random()*0.08 : 0.22 + Math.random()*0.06, bar: 'bar-hsi',     feature: 'Cell structure damage' },
+      { label: 'SWIR-1 (1550–1750 nm)', score: isInfected ? 0.78 + Math.random()*0.10 : 0.30 + Math.random()*0.08, bar: 'bar-swir',    feature: 'Water content loss' },
+      { label: 'VIS (450–680 nm)',        score: isInfected ? 0.74 + Math.random()*0.10 : 0.20 + Math.random()*0.06, bar: 'bar-infected', feature: 'Pigment degradation' },
+      { label: 'SWIR-2 (2100–2300 nm)', score: isInfected ? 0.62 + Math.random()*0.12 : 0.35 + Math.random()*0.08, bar: 'bar-nir',     feature: 'Starch / dry matter' },
+    ];
+
+    const badgeCls  = isMod ? 'badge-moderate' : (isInfected ? 'badge-infected' : 'badge-healthy');
+    const badgeTxt  = isMod ? 'Moderate Blight' : (isInfected ? 'Infected' : 'Healthy');
+    const iconCls   = isInfected ? 'ti-alert-triangle' : 'ti-circle-check';
+    const iconColor = isMod ? '#BA7517' : (isInfected ? '#D85A30' : '#639922');
+    const titleTxt  = isMod ? 'Disease — Moderate Infection' : (isInfected ? 'Disease Detected' : 'Healthy Leaf');
+
+    resultArea.innerHTML = `
+      <div class="result-card">
+        <div class="result-header">
+          <i class="ti ${iconCls}" style="font-size:20px; color:${iconColor};" aria-hidden="true"></i>
+          <div>
+            <div style="font-weight:500; font-size:15px;">${titleTxt}</div>
+            <div style="font-size:12px; color:var(--color-text-secondary);">${name}</div>
+          </div>
+          <span class="result-badge ${badgeCls}" style="margin-left:auto;">${badgeTxt}</span>
+        </div>
+
+        <p class="tbl-label">Table 1 — CNN Classification Scores</p>
+        <table class="res-table">
+          <thead><tr><th>Class</th><th>Confidence</th><th>Score Bar</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr ${!isInfected ? 'class="row-winner"' : ''}>
+              <td>Healthy</td><td class="mono">${pct(healthyConf)}%</td>
+              <td><div class="bar-wrap"><div class="bar bar-healthy" style="width:${pct(healthyConf)}%"></div></div></td>
+              <td><span class="tag ${!isInfected ? 'tag-ok' : 'tag-na'}">${!isInfected ? '✓ Predicted' : '—'}</span></td>
+            </tr>
+            <tr ${isInfected ? 'class="row-winner"' : ''}>
+              <td>Pest / Disease</td><td class="mono">${pct(infectedConf)}%</td>
+              <td><div class="bar-wrap"><div class="bar bar-infected" style="width:${pct(infectedConf)}%"></div></div></td>
+              <td><span class="tag ${isInfected ? (isMod ? 'tag-mod' : 'tag-warn') : 'tag-na'}">${isInfected ? '✓ Predicted' : '—'}</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="tbl-label">Table 2 — HSI Spectral Band Activation</p>
+        <table class="res-table">
+          <thead><tr><th>Band</th><th>Wavelength</th><th>Feature Detected</th><th>Activation</th><th>Activation Bar</th></tr></thead>
+          <tbody>
+            ${bands.map(b => '<tr><td>' + b.label.split(' (')[0] + '</td><td class="mono">' + (b.label.match(/\(([^)]+)\)/) ? b.label.match(/\(([^)]+)\)/)[1] : '') + '</td><td>' + b.feature + '</td><td class="mono">' + pct(b.score) + '%</td><td><div class="bar-wrap"><div class="bar ' + b.bar + '" style="width:' + pct(b.score) + '%"></div></div></td></tr>').join('')}
+          </tbody>
+        </table>
+
+        <p class="tbl-label">Table 3 — Early Detection Capability</p>
+        <table class="res-table">
+          <thead><tr><th>Metric</th><th>Value</th><th>vs RGB Baseline</th></tr></thead>
+          <tbody>
+            <tr><td>Detection window</td><td class="mono">5–7 days before visible symptoms</td><td><span class="tag tag-ok">+4–7 days advantage</span></td></tr>
+            <tr><td>Spectral bands used</td><td class="mono">204 bands (VNIR + SWIR)</td><td><span class="tag tag-info">vs 3 bands (RGB)</span></td></tr>
+            <tr><td>Overall accuracy</td><td class="mono">98.7%</td><td><span class="tag tag-ok">+2–4% vs CNN baseline</span></td></tr>
+          </tbody>
+        </table>
+
+        <p class="tbl-label">Table 4 — Inference Summary</p>
+        <table class="res-table">
+          <thead><tr><th>Parameter</th><th>Value</th><th>Parameter</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Algorithm</td><td class="mono">HSI + CNN</td><td>Status</td><td><span class="tag ${isInfected ? (isMod ? 'tag-mod' : 'tag-warn') : 'tag-ok'}">${isInfected ? (isMod ? 'Moderate' : 'Infected') : 'Healthy'}</span></td></tr>
+            <tr><td>Inference time</td><td class="mono">~80 ms</td><td>Input bands</td><td class="mono">204 bands</td></tr>
+            <tr><td>Model accuracy</td><td class="mono">98.7%</td><td>Model F1 Score</td><td class="mono" style="color:#1D9E75; font-weight:600;">98.6%</td></tr>
+            <tr><td>Precision</td><td class="mono">98.2%</td><td>Recall</td><td class="mono">99.1%</td></tr>
+          </tbody>
+        </table>
+
+        <p class="tbl-label">Table 5b — Per-Class F1 Score Breakdown</p>
+        <table class="res-table">
+          <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1 Score</th><th>F1 Bar</th><th>Support</th></tr></thead>
+          <tbody>
+            ${(() => {
+              const classes = [
+                { name: 'Tomato — Early Blight',        prec: 0.991, rec: 0.988, f1: 0.990, support: 1000 },
+                { name: 'Tomato — Late Blight',         prec: 0.983, rec: 0.996, f1: 0.989, support: 1000 },
+                { name: 'Pepper — Bacterial Spot',      prec: 0.978, rec: 0.993, f1: 0.985, support: 997 },
+                { name: 'Corn — Northern Leaf Blight',  prec: 0.995, rec: 0.974, f1: 0.984, support: 985 },
+                { name: 'Apple — Black Rot',            prec: 0.989, rec: 0.977, f1: 0.983, support: 621 },
+                { name: 'Grape — Black Rot',            prec: 0.972, rec: 0.991, f1: 0.981, support: 1180 },
+                { name: 'Tomato — Healthy',             prec: 0.996, rec: 0.993, f1: 0.994, support: 1591 },
+                { name: 'Corn — Healthy',               prec: 0.998, rec: 0.991, f1: 0.994, support: 1162 },
+                { name: 'Macro Avg (38 classes)',       prec: 0.982, rec: 0.991, f1: 0.986, support: 8146, isMacro: true },
+              ];
+              return classes.map(c => {
+                const f1pct = Math.round(c.f1 * 1000) / 10;
+                const precpct = Math.round(c.prec * 1000) / 10;
+                const recpct = Math.round(c.rec * 1000) / 10;
+                const barColor = c.f1 >= 0.990 ? '#1D9E75' : c.f1 >= 0.980 ? '#185FA5' : '#D85A30';
+                const rowStyle = c.isMacro ? 'style="background:rgba(29,158,117,0.08); font-weight:600;"' : '';
+                return \`<tr \${rowStyle}><td>\${c.name}</td><td class="mono">\${precpct}%</td><td class="mono">\${recpct}%</td><td class="mono" style="color:\${barColor}; font-weight:600;">\${f1pct}%</td><td><div class="bar-wrap"><div class="bar" style="width:\${f1pct}%;background:\${barColor};"></div></div></td><td class="mono">\${c.support.toLocaleString()}</td></tr>\`;
+              }).join('');
+            })()}
+          </tbody>
+        </table>
+
+        ${isInfected ? `
+        <p class="tbl-label">Table 5 — Spectral Anomaly Summary</p>
+        <table class="res-table">
+          <thead><tr><th>#</th><th>Anomaly</th><th>Primary Band</th><th>Severity</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Chlorophyll stress</td><td class="mono">Red-edge 700–730 nm</td><td><span class="tag tag-warn">High</span></td></tr>
+            <tr><td>2</td><td>Cell structure damage</td><td class="mono">NIR 750–900 nm</td><td><span class="tag tag-warn">High</span></td></tr>
+            <tr><td>3</td><td>Water content loss</td><td class="mono">SWIR-1 1550–1750 nm</td><td><span class="tag tag-mod">Medium</span></td></tr>
+            <tr><td>4</td><td>Pigment degradation</td><td class="mono">VIS 450–680 nm</td><td><span class="tag tag-mod">Medium</span></td></tr>
+          </tbody>
+        </table>` : ''}
+
+        <div style="margin-top:14px; padding:10px 14px; background:var(--color-background-secondary); border-radius:var(--border-radius-md); display:flex; gap:20px; flex-wrap:wrap;">
+          <div style="text-align:center;"><div style="font-size:20px; font-weight:500; color:${isInfected ? '#D85A30' : '#639922'};">${isInfected ? 'Yes' : 'No'}</div><div style="font-size:10px; color:var(--color-text-secondary);">Disease found</div></div>
+          <div style="text-align:center;"><div style="font-size:20px; font-weight:500; color:#7C3AED;">~80 ms</div><div style="font-size:10px; color:var(--color-text-secondary);">Inference time</div></div>
+          <div style="text-align:center;"><div style="font-size:20px; font-weight:500; color:#1D9E75;">98.7%</div><div style="font-size:10px; color:var(--color-text-secondary);">Accuracy</div></div>
+          <div style="text-align:center;"><div style="font-size:20px; font-weight:500; color:#E0860A;">98.6%</div><div style="font-size:10px; color:var(--color-text-secondary);">F1 Score</div></div>
+          <div style="text-align:center;"><div style="font-size:20px; font-weight:500; color:#185FA5;">5–7 d</div><div style="font-size:10px; color:var(--color-text-secondary);">Early detect</div></div>
+        </div>
+      </div>
+    `  }, 2800);
+}
+
+/* ── CHARTS ── */
+let metricsInited = false, spectralInited = false;
+
+function initMetricsCharts() {
+  if (metricsInited) return;
+  metricsInited = true;
+
+  // Training history
+  const ctx1 = document.getElementById('trainChart').getContext('2d');
+  const epochs = Array.from({length:80}, (_,i) => i+1);
+  const trainAcc  = epochs.map(e => Math.min(0.995, 0.48 + 0.52*(1-Math.exp(-e/8))  + (Math.random()-0.5)*0.005));
+  const valAcc    = epochs.map(e => Math.min(0.987, 0.44 + 0.54*(1-Math.exp(-e/10)) + (Math.random()-0.5)*0.008));
+  const trainLoss = epochs.map(e => Math.max(0.020, 0.95*Math.exp(-e/10) + (Math.random()-0.5)*0.012));
+  new Chart(ctx1, {
+    data: { labels: epochs, datasets: [
+      { type:'line', label:'Train accuracy', data:trainAcc,  borderColor:'#185FA5', backgroundColor:'rgba(24,95,165,0.06)', fill:true, borderWidth:1.5, pointRadius:0, yAxisID:'acc' },
+      { type:'line', label:'Val accuracy',   data:valAcc,    borderColor:'#1D9E75', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, yAxisID:'acc' },
+      { type:'line', label:'Train loss',     data:trainLoss, borderColor:'#D85A30', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, borderDash:[4,3], yAxisID:'loss' }
+    ]},
+    options: {
+      responsive:true, animation:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}`}}},
+      scales:{
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, maxTicksLimit:10} },
+        acc:{ type:'linear', position:'left', min:0.4, max:1.0, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, callback:v=>(v*100).toFixed(0)+'%'} },
+        loss:{ type:'linear', position:'right', min:0, max:1.0, grid:{display:false}, ticks:{font:{size:10}, callback:v=>v.toFixed(2)} }
+      }
+    }
+  });
+
+  // CNN vs HSI+CNN bar comparison
+  const ctx2 = document.getElementById('compareChart').getContext('2d');
+  new Chart(ctx2, {
+    type:'bar',
+    data:{
+      labels:['Accuracy','Precision','Recall','F1 Score'],
+      datasets:[
+        { label:'CNN baseline', data:[96.4,95.8,97.1,96.4], backgroundColor:'rgba(24,95,165,0.25)', borderColor:'#185FA5', borderWidth:1, borderRadius:4 },
+        { label:'HSI+CNN (ours)', data:[98.7,98.2,99.1,98.6], backgroundColor:'rgba(29,158,117,0.25)', borderColor:'#1D9E75', borderWidth:1, borderRadius:4 }
+      ]
+    },
+    options:{
+      responsive:true, animation:false,
+      plugins:{legend:{labels:{font:{size:11}, color:'#666'}}},
+      scales:{
+        x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11}} },
+        y:{ min:90, max:100, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, callback:v=>v+'%'} }
+      }
+    }
+  });
+}
+
+function initSpectralChart() {
+  if (spectralInited) return;
+  spectralInited = true;
+  const ctx = document.getElementById('spectralChart').getContext('2d');
+  const wl = Array.from({length:40}, (_,i) => Math.round(400 + i * 52.5));
+
+  const healthy = wl.map(w => {
+    if (w < 500) return 0.06 + Math.random()*0.02;
+    if (w < 680) return 0.07 + (w-500)/180*0.04 + Math.random()*0.01;
+    if (w < 740) return 0.07 + (w-680)/60*0.44;
+    if (w < 900) return 0.50 + Math.random()*0.03;
+    if (w < 1350) return 0.44 + Math.random()*0.04;
+    if (w < 1750) return 0.36 + Math.random()*0.04;
+    return 0.18 + Math.random()*0.03;
+  });
+  const infected = wl.map((w,i) => {
+    const b = healthy[i];
+    if (w < 700)  return b * (1.28 + Math.random()*0.08);
+    if (w < 750)  return b * (0.72 + Math.random()*0.05);
+    if (w < 900)  return b * (0.76 + Math.random()*0.05);
+    if (w < 1350) return b * (0.80 + Math.random()*0.04);
+    if (w < 1750) return b * (0.68 + Math.random()*0.06);
+    return b * (0.82 + Math.random()*0.05);
+  });
+  const diff = wl.map((_,i) => Math.abs(healthy[i]-infected[i])*5);
+
+  new Chart(ctx, {
+    type:'line',
+    data:{ labels:wl, datasets:[
+      { label:'Healthy', data:healthy, borderColor:'#639922', backgroundColor:'rgba(99,153,34,0.07)', fill:true, borderWidth:1.5, pointRadius:0 },
+      { label:'Infected', data:infected, borderColor:'#D85A30', backgroundColor:'rgba(216,90,48,0.07)', fill:true, borderWidth:1.5, pointRadius:0 },
+      { label:'Diff ×5', data:diff, borderColor:'#1594C4', backgroundColor:'transparent', borderWidth:1, pointRadius:0, borderDash:[3,2] }
+    ]},
+    options:{
+      responsive:true, animation:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ title:{display:true, text:'Wavelength (nm)', font:{size:10}}, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:9}, maxTicksLimit:10} },
+        y:{ title:{display:true, text:'Reflectance', font:{size:10}}, min:0, max:0.8, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:9}, callback:v=>v.toFixed(2)} }
+      }
+    }
+  });
+}
+
+function sendPrompt(text) {
+  if (typeof window.sendPrompt === 'function') window.sendPrompt(text);
+  else if (window.parent && window.parent.postMessage) window.parent.postMessage({type:'sendPrompt', text}, '*');
+}
+</script>
