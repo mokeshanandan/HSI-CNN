@@ -2,8 +2,7 @@
 
 CNN-based classification pipeline using HSI (Hyperspectral Imaging) preprocessing to detect plant leaf diseases, benchmarked across four public Kaggle datasets.
 
-🔗 Notebook:(https://www.kaggle.com/datasets/abdallahalidev/plantvillage-dataset)
-
+🔗 Notebook:https://www.kaggle.com/code/mokeshanandan/notebook85ae1b8f14
 ## Results
 
 | Dataset | Source | Accuracy | F1-score |
@@ -25,6 +24,4 @@ CNN-based classification pipeline using HSI (Hyperspectral Imaging) preprocessin
 - 
 PlantVillage Dataset appears twice (rows 2 and 4), sourced from two different Kaggle uploads of the same underlying data, evaluated separately for consistency.
 
-## Prototype
 
-Interactive demo in [`prototype/`](prototype/) — open the HTML file in a browser, or enable GitHub Pages for a live link.
